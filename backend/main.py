@@ -1,14 +1,17 @@
-"""Entry point for the CyberSentry FastAPI application.
-
-This module creates the FastAPI app instance and registers routers.
-"""
+"""FastAPI entry point for CyberSentry."""
 
 from fastapi import FastAPI
 
-from backend.scanner.asset_router import router as asset_router
+from scanner.asset_router import router as asset_router
+from scorer.scorer_router import router as scorer_router
 
 
 app = FastAPI(title="CyberSentry")
 
-# Register routers
-app.include_router(asset_router, prefix="/assets", tags=["assets"])
+app.include_router(asset_router, prefix="/assets")
+app.include_router(scorer_router, prefix="/scores")
+
+
+@app.get("/")
+def root():
+    return {"message": "CyberSentry backend running"}
