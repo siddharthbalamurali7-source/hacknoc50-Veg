@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+pydantic
+python-multipart
+python-dotenv
+aiofiles
+requests
+loguru
+networkx
+python-nmap
+sqlalchemy
+psycopg2-binary
+pandas
+fastapi[all]

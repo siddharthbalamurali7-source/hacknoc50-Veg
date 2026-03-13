@@ -48,6 +48,13 @@ export async function seedScenarios() {
   return res.json()
 }
 
+export async function getCriticalPaths() {
+  if (USE_MOCK) return mockData.criticalPaths ?? []
+
+  const res = await fetch(`${BASE_URL}/analyzer/critical-paths`)
+  return res.json()
+}
+
 export async function deleteAsset(assetId) {
   if (USE_MOCK) return { message: "Deleted (mock)" }
 
@@ -175,6 +182,13 @@ export async function getAttackGraph() {
   })
 
   return { nodes, edges }
+}
+
+export async function getAttackPaths(assetId) {
+  if (USE_MOCK) return mockData.attackPaths?.[assetId] ?? { nodes: [], edges: [], total_probability: 0 }
+
+  const res = await fetch(`${BASE_URL}/analyzer/attack-paths/${assetId}`)
+  return res.json()
 }
 
 // ─── TASKS ──────────────────────
