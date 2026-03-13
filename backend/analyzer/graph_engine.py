@@ -2,10 +2,7 @@ import heapq
 from typing import List, Dict, Any, Tuple
 from sqlalchemy.orm import Session
 
-try:
-    from ..models import AssetModel, RelationshipModel
-except ImportError:
-    from models import AssetModel, RelationshipModel
+from models import AssetModel, RelationshipModel
 
 class GraphEngine:
     """

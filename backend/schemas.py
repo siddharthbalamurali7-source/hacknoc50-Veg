@@ -22,8 +22,8 @@ class AssetOut(BaseModel):
     hostname: Optional[str] = None
     os: Optional[str] = None
     internet_exposed: bool = False
-    open_ports: List[int] = Field(default_factory=list)
-    software_list: List[Software] = Field(default_factory=list)
+    open_ports: Optional[List[int]] = []
+    software_list: Optional[List[Software]] = []
     criticality: int
     risk_score: Optional[float] = None
     severity_label: Optional[str] = None

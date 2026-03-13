@@ -26,49 +26,71 @@ export default function AttackGraph() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getAttackGraph().then((data) => {
-      setGraphData(data)
-      setLoading(false)
+    getAttackGraph()
+      .then((data) => {
+        setGraphData(data)
 
-      cyInstance.current = cytoscape({
-        container: cyRef.current,
-        elements: [],
-        style: [
-          {
-            selector: "node",
-            style: {
-              label: "data(label)",
-              "background-color": "#7fbfff",
-              color: "#000",
-              "text-valign": "center",
-              "text-halign": "center",
-              width: 0,
-              height: 0,
-              "font-family": "Orbitron",
-              "font-size": "11px",
-              "font-weight": "600",
+        cyInstance.current = cytoscape({
+          container: cyRef.current,
+          elements: [],
+          style: [
+            {
+              selector: "node",
+              style: {
+                label: "data(label)",
+                "background-color": "#7fbfff",
+                color: "#fff",
+                "text-valign": "bottom",
+                "text-halign": "center",
+                "text-margin-y": 8,
+                width: 0,
+                height: 0,
+                "font-family": "Orbitron, sans-serif",
+                "font-size": "12px",
+                "font-weight": "500",
+                "text-outline-color": "#000",
+                "text-outline-width": 2,
+              },
             },
-          },
-          {
-            selector: "edge",
-            style: {
-              width: 2,
-              "line-color": "#7fbfff",
-              "target-arrow-color": "#7fbfff",
-              "target-arrow-shape": "triangle",
-              "curve-style": "bezier",
-              opacity: 0,
+            {
+              selector: "edge",
+              style: {
+                width: 2,
+                label: "data(type)",
+                "font-size": "10px",
+                color: "#a0aec0",
+                "text-rotation": "autorotate",
+                "text-margin-y": -10,
+                "line-color": "#4a5568",
+                "target-arrow-color": "#4a5568",
+                "target-arrow-shape": "triangle",
+                "curve-style": "bezier",
+                opacity: 0,
+              },
             },
+            {
+              selector: "node[id='internet']",
+              style: {
+                shape: "star",
+                "background-color": "#7fbfff",
+              }
+            }
+          ],
+          layout: {
+            name: "dagre",
+            rankDir: "LR",
+            nodeSep: 100,
+            edgeSep: 60,
+            rankSep: 150,
           },
-        ],
-        layout: {
-          name: "dagre",
-          rankDir: "LR",
-          nodeSep: 80,
-          edgeSep: 50,
-        },
+        })
       })
-    })
+      .catch((err) => {
+        console.error("Attack Graph failed to load:", err)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
   }, [])
 
   function buildGraph() {
@@ -85,13 +107,11 @@ export default function AttackGraph() {
         const node = cy.add(nodes[nodeIndex])
         const color = nodeColor(nodes[nodeIndex].data)
 
-        cy.layout({ name: "dagre", rankDir: "LR" }).run()
-
         node.style("background-color", color)
-        node.animate({ style: { width: 70, height: 70 } }, { duration: 600 })
+        node.animate({ style: { width: 45, height: 45 } }, { duration: 600 })
 
         nodeIndex++
-        setTimeout(addNextNode, 700)
+        setTimeout(addNextNode, 400)
       } else {
         addEdges()
       }
@@ -102,9 +122,29 @@ export default function AttackGraph() {
     function addEdges() {
       if (edgeIndex < edges.length) {
         const edge = cy.add(edges[edgeIndex])
+
+        // Highlight critical paths
+        if (edges[edgeIndex].data.source !== "internet") {
+          edge.style({
+            "line-color": "#7fbfff",
+            "target-arrow-color": "#7fbfff",
+            "width": 3
+          })
+        }
+
         edge.animate({ style: { opacity: 1 } }, { duration: 500 })
+
+        // Reflow layout as we add edges
+        cy.layout({
+          name: "dagre",
+          rankDir: "LR",
+          animate: true,
+          animationDuration: 500,
+          spacingFactor: 1.2
+        }).run()
+
         edgeIndex++
-        setTimeout(addEdges, 500)
+        setTimeout(addEdges, 400)
       } else {
         pulseEdges()
       }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { getScoreSummary, recalculateAllScores, seedAssets } from "../api/client"
+import { getScoreSummary, recalculateAllScores, seedAssets, seedScenarios } from "../api/client"
 
 const SEVERITY_COLOR = {
   CRITICAL: "text-red-400",
@@ -15,19 +15,30 @@ export default function DashboardPage() {
   const [seeding, setSeeding] = useState(false)
 
   useEffect(() => {
-    getScoreSummary().then((data) => {
-      setSummary(data)
-      setLoading(false)
-    })
+    getScoreSummary()
+      .then((data) => {
+        setSummary(data)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
   }, [])
 
   async function handleSeed() {
     setSeeding(true)
-    await seedAssets()
-    await recalculateAllScores()
-    const data = await getScoreSummary()
-    setSummary(data)
-    setSeeding(false)
+    try {
+      // Seed all scenarios (clears DB first)
+      await seedScenarios()
+      // Recalculate scores for the new assets
+      await recalculateAllScores()
+      // Refresh summary
+      const data = await getScoreSummary()
+      setSummary(data)
+    } catch (err) {
+      console.error("Seeding failed:", err)
+    } finally {
+      setSeeding(false)
+    }
   }
 
   if (loading) {
@@ -81,10 +92,10 @@ export default function DashboardPage() {
                 summary?.severity === "CRITICAL"
                   ? "#f87171"
                   : summary?.severity === "HIGH"
-                  ? "#fb923c"
-                  : summary?.severity === "MEDIUM"
-                  ? "#facc15"
-                  : "#4ade80",
+                    ? "#fb923c"
+                    : summary?.severity === "MEDIUM"
+                      ? "#facc15"
+                      : "#4ade80",
             }}
           />
         </div>

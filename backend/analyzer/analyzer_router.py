@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from ..database import SessionLocal
-from ..schemas import RelationshipOut, RelationshipCreate, AttackPath
-from ..models import RelationshipModel, AssetModel
-from .graph_engine import GraphEngine
 
-router = APIRouter(prefix="/analyzer", tags=["analyzer"])
+from schemas import RelationshipCreate, RelationshipOut, AttackPath
+from database import SessionLocal
+from models import RelationshipModel, AssetModel
+from analyzer.graph_engine import GraphEngine
+import seed_relationships
+
+router = APIRouter(tags=["analyzer"])
 
 def get_db():
     db = SessionLocal()
@@ -57,3 +59,15 @@ def get_critical_paths(db: Session = Depends(get_db)):
     # Sort by total probability descending
     results.sort(key=lambda x: x["path"]["total_probability"], reverse=True)
     return results[:5]
+
+@router.post("/seed-scenarios")
+def seed_scenarios(db: Session = Depends(get_db)):
+    """
+    Clears the database and seeds all complex scenarios for the attack graph.
+    """
+    stats = seed_relationships.seed_all_extended(db)
+    return {
+        "status": "success",
+        "message": f"Successfully seeded {stats['assets']} assets and {stats['relationships']} relationships.",
+        "stats": stats
+    }

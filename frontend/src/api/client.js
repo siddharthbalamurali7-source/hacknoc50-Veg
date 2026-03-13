@@ -43,6 +43,11 @@ export async function seedAssets() {
   return res.json()
 }
 
+export async function seedScenarios() {
+  const res = await fetch(`${BASE_URL}/analyzer/seed-scenarios`, { method: "POST" })
+  return res.json()
+}
+
 export async function deleteAsset(assetId) {
   if (USE_MOCK) return { message: "Deleted (mock)" }
 
@@ -121,9 +126,10 @@ export async function getAttackGraph() {
   if (USE_MOCK) return mockData.attackGraph
 
   // Build graph from real data
-  const [assets, scores] = await Promise.all([
+  const [assets, scores, relationships] = await Promise.all([
     fetch(`${BASE_URL}/assets/`).then((r) => r.json()),
     fetch(`${BASE_URL}/scores/`).then((r) => r.json()),
+    fetch(`${BASE_URL}/analyzer/relationships`).then((r) => r.json()),
   ])
 
   const scoreMap = {}
@@ -142,47 +148,48 @@ export async function getAttackGraph() {
     })),
   ]
 
-  // Connect internet → exposed assets; connect all others in chain
   const edges = []
+
+  // 1. Connect internet to all assets marked as internet_exposed
   assets.forEach((a) => {
     if (a.internet_exposed) {
-      edges.push({ data: { source: "internet", target: String(a.id) } })
+      edges.push({
+        data: {
+          source: "internet",
+          target: String(a.id),
+          type: "exposed"
+        }
+      })
     }
   })
-  // Simple chain: link assets by id order as a demonstration path
-  for (let i = 0; i < assets.length - 1; i++) {
+
+  // 2. Add real trust relationships from the DB
+  relationships.forEach((rel) => {
     edges.push({
-      data: { source: String(assets[i].id), target: String(assets[i + 1].id) },
+      data: {
+        source: String(rel.source_asset_id),
+        target: String(rel.target_asset_id),
+        type: rel.type
+      }
     })
-  }
+  })
 
   return { nodes, edges }
 }
 
-// ─── TASKS (derived from top CVEs / high-risk assets) ──────────────────────
+// ─── TASKS ──────────────────────
 
 export async function getTasks() {
   if (USE_MOCK) return mockData.tasks
+  const res = await fetch(`${BASE_URL}/scores/tasks`)
+  return res.json()
+}
 
-  // Backend has no dedicated /tasks endpoint.
-  // We derive hardening tasks from high-risk scores.
-  const scores = await fetch(`${BASE_URL}/scores/`).then((r) => r.json())
-  const tasks = []
-
-  scores.forEach((s) => {
-    if (!s.top_cves) return
-    s.top_cves.forEach((cve, i) => {
-      tasks.push({
-        id: `${s.asset_id}-${i}`,
-        asset_id: s.asset_id,
-        hostname: s.hostname,
-        description: `Patch ${cve} on ${s.hostname || `Asset #${s.asset_id}`}`,
-        cve_id: cve,
-        priority: s.severity === "CRITICAL" ? "Critical" : s.severity === "HIGH" ? "High" : "Medium",
-        fix: { type: "patch_cve", cve_id: cve },
-      })
-    })
+export async function applyFix(assetId, fix) {
+  const res = await fetch(`${BASE_URL}/scores/apply-fix/${assetId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(fix),
   })
-
-  return tasks
+  return res.json()
 }

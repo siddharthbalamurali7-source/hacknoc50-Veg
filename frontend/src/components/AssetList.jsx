@@ -16,14 +16,25 @@ export default function AssetList() {
 
   useEffect(() => {
     async function load() {
-      const [assetData, scoreData] = await Promise.all([getAssets(), getAllScores()])
-      setAssets(assetData)
+      try {
+        const [assetData, scoreData] = await Promise.all([getAssets(), getAllScores()])
 
-      const map = {}
-      scoreData.forEach((s) => { map[s.asset_id] = s })
-      setScoreMap(map)
+        // Ensure data is expected array type
+        const safeAssets = Array.isArray(assetData) ? assetData : []
+        const safeScores = Array.isArray(scoreData) ? scoreData : []
 
-      setLoading(false)
+        setAssets(safeAssets)
+
+        const map = {}
+        safeScores.forEach((s) => {
+          if (s && s.asset_id) map[s.asset_id] = s
+        })
+        setScoreMap(map)
+      } catch (err) {
+        console.error("Failed to load assets:", err)
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [])
@@ -92,20 +103,18 @@ export default function AssetList() {
                         {[1, 2, 3, 4, 5].map((n) => (
                           <div
                             key={n}
-                            className={`w-2 h-2 rounded-sm ${
-                              n <= (a.criticality ?? 0)
+                            className={`w-2 h-2 rounded-sm ${n <= (a.criticality ?? 0)
                                 ? "bg-blue-400"
                                 : "bg-gray-700"
-                            }`}
+                              }`}
                           />
                         ))}
                       </div>
                     </td>
                     <td className="py-3">
                       <span
-                        className={`text-xs hud-title ${
-                          a.internet_exposed ? "text-red-400" : "text-gray-500"
-                        }`}
+                        className={`text-xs hud-title ${a.internet_exposed ? "text-red-400" : "text-gray-500"
+                          }`}
                       >
                         {a.internet_exposed ? "YES" : "NO"}
                       </span>
