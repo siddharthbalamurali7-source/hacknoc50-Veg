@@ -243,26 +243,7 @@ def scan_self(db: Session = Depends(get_db)):
     vm_asset = upsert_asset(raw_assets[0], db)
     print(f"[asset_router] VM asset saved — id={vm_asset.id}, ip={vm_asset.ip_address}")
 
-    # Step 3 — create 2 fake entry-point assets to build attack graph
-    entry1 = upsert_asset({
-        "ip_address":     "10.0.0.1",
-        "hostname":       "corp-gateway",
-        "os":             "Linux",
-        "open_ports":     [80, 443],
-        "software_list":  [{"name": "nginx", "version": "1.18.0"}],
-        "criticality":    2,
-        "internet_exposed": True,
-    }, db)
-
-    entry2 = upsert_asset({
-        "ip_address":     "10.0.0.2",
-        "hostname":       "internal-proxy",
-        "os":             "Linux",
-        "open_ports":     [22, 8080],
-        "software_list":  [{"name": "OpenSSH", "version": "7.4"}],
-        "criticality":    3,
-        "internet_exposed": False,
-    }, db)
+    
 
     # Step 4 — create relationships pointing toward the VM
     def add_relationship(src_id, tgt_id, rel_type, prob):
@@ -279,14 +260,11 @@ def scan_self(db: Session = Depends(get_db)):
             ))
             db.commit()
 
-    add_relationship(entry1.id, entry2.id, "network_reachable", 0.8)
-    add_relationship(entry2.id, vm_asset.id, "ssh_pivot", 0.6)
-
     duration = (datetime.now() - start_time).seconds
 
     return ScanResult(
         assets_found=len(raw_assets),
-        assets_saved=3,
+        assets_saved=1,
         ip_range=own_ip,
         scan_duration=duration,
         timestamp=datetime.now(),
