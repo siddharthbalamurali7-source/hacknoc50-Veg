@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { getScoreSummary, recalculateAllScores, seedAssets, seedScenarios } from "../api/client"
+import { getScoreSummary, recalculateAllScores, triggerScan, seedScenarios } from "../api/client"
 
 const SEVERITY_COLOR = {
   CRITICAL: "text-red-400",
@@ -24,18 +24,17 @@ export default function DashboardPage() {
       })
   }, [])
 
-  async function handleSeed() {
+  async function handleScan() {
     setSeeding(true)
     try {
-      // Seed all scenarios (clears DB first)
+      // Hybrid model: Scan for real open ports, then seed demo relationships for attack graph
+      await triggerScan("127.0.0.1/32", "1-1024", false)
       await seedScenarios()
-      // Recalculate scores for the new assets
       await recalculateAllScores()
-      // Refresh summary
       const data = await getScoreSummary()
       setSummary(data)
     } catch (err) {
-      console.error("Seeding failed:", err)
+      console.error("Scanning failed:", err)
     } finally {
       setSeeding(false)
     }
@@ -61,11 +60,11 @@ export default function DashboardPage() {
         </h2>
 
         <button
-          onClick={handleSeed}
+          onClick={handleScan}
           disabled={seeding}
           className="px-4 py-2 border border-blue-300 text-blue-300 rounded-md hover:bg-blue-300 hover:text-black transition duration-300 hud-title text-xs disabled:opacity-50"
         >
-          {seeding ? "LOADING DATA..." : "LOAD DEMO DATA"}
+          {seeding ? "SCANNING..." : "SCAN & SEED GRAPH"}
         </button>
       </div>
 
