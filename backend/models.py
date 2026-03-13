@@ -1,12 +1,13 @@
 """SQLAlchemy model definitions for CyberSentry."""
-
 from sqlalchemy import (
     Column,
     Integer,
     String,
     Float,
     DateTime,
+    TIMESTAMP,
     JSON,
+    Boolean,
     ForeignKey,
 )
 from sqlalchemy.ext.declarative import declarative_base
@@ -20,11 +21,13 @@ class AssetModel(Base):
 
     __tablename__ = "assets"
 
-    id = Column(Integer, primary_key=True, index=True)
-    ip = Column(String, unique=True, index=True, nullable=False)
+    # Use explicit IDs instead of relying on a Postgres-owned sequence.
+    # This avoids permission issues when the connected user cannot access the sequence.
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    ip_address = Column(String, unique=True, index=True, nullable=False)
     hostname = Column(String, nullable=True)
     os = Column(String, nullable=True)
-    asset_type = Column(String, nullable=True)
+    internet_exposed = Column(Boolean, default=False)
 
     # stored as JSON so we can easily store list structures
     open_ports = Column(JSON, nullable=True)
@@ -32,12 +35,11 @@ class AssetModel(Base):
 
     # set by the scanner / business owner
     criticality = Column(Integer, default=2)
-    last_scanned = Column(DateTime, nullable=True)
 
     # calculated by the scorer
     risk_score = Column(Float, nullable=True)
     severity_label = Column(String, nullable=True)
-    last_scored = Column(DateTime, nullable=True)
+    last_scanned = Column(TIMESTAMP(timezone=True), nullable=True)
 
 
 class RiskScoreModel(Base):
@@ -45,7 +47,7 @@ class RiskScoreModel(Base):
 
     __tablename__ = "risk_scores"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     asset_id = Column(Integer, ForeignKey("assets.id"), nullable=False)
 
     score = Column(Float, nullable=False)
@@ -53,4 +55,4 @@ class RiskScoreModel(Base):
     breakdown = Column(JSON, nullable=True)
     top_cves = Column(JSON, nullable=True)
 
-    calculated_at = Column(DateTime, nullable=False)
+    calculated_at = Column(TIMESTAMP(timezone=True), nullable=True)

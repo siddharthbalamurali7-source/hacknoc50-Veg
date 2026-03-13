@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 # ── Port weights ───────────────────────────────────────────────────────────────
 # Each value represents how dangerous that port being open is.
@@ -98,21 +98,11 @@ def criticality_score(criticality: int) -> float:
     return float(CRITICALITY_WEIGHTS.get(level, 10))
 
 
+
 def patch_age_score(last_scanned) -> float:
-    """
-    Penalise assets that haven't been scanned recently.
-    The longer since last scan, the more likely new CVEs exist undetected.
-
-    Args:
-        last_scanned: datetime object or None
-
-    Returns:
-        float between 0 and 20
-    """
     if last_scanned is None:
-        return 20.0  # never scanned = maximum penalty
+        return 20.0
 
-    # handle both datetime objects and ISO string dates
     if isinstance(last_scanned, str):
         try:
             last_scanned = datetime.fromisoformat(last_scanned)
@@ -120,7 +110,12 @@ def patch_age_score(last_scanned) -> float:
             return 20.0
 
     try:
-        days = (datetime.now() - last_scanned).days
+        # use timezone-aware now() to match TIMESTAMPTZ from PostgreSQL
+        now  = datetime.now(timezone.utc)
+        # make last_scanned timezone-aware if it isn't already
+        if last_scanned.tzinfo is None:
+            last_scanned = last_scanned.replace(tzinfo=timezone.utc)
+        days = (now - last_scanned).days
     except TypeError:
         return 20.0
 
@@ -146,38 +141,14 @@ def score_to_label(score: float) -> str:
 # ── Main scoring function ──────────────────────────────────────────────────────
 
 def calculate_risk(asset: dict, cves: list) -> dict:
-    """
-    Main entry point for the scoring engine.
-    Takes raw asset data and a list of CVEs, returns a complete score result.
-
-    Args:
-        asset: dict with keys:
-            open_ports   (list[int])  — ports found open during scan
-            criticality  (int 1-5)   — business importance, set manually
-            last_scanned (datetime)  — when the asset was last scanned
-
-        cves: list of dicts, each with:
-            cve_id      (str)   — e.g. "CVE-2021-44228"
-            cvss        (float) — CVSS base score 0.0-10.0
-            has_exploit (bool)  — whether public exploit code exists
-            description (str)   — plain English description
-
-    Returns:
-        dict with:
-            score      (float)       — final risk score 0.0-100.0
-            severity   (str)         — CRITICAL / HIGH / MEDIUM / LOW
-            breakdown  (dict)        — contribution from each factor
-            top_cves   (list[str])   — top 3 CVE IDs by severity
-    """
     p = port_score(asset.get("open_ports", []))
     c = cve_score(cves)
     k = criticality_score(asset.get("criticality", 2))
-    a = patch_age_score(asset.get("last_scanned"))
+    a = patch_age_score(asset.get("last_scanned"))   # ← now works
 
     raw   = p + c + k + a
     final = min(round(raw, 1), 100.0)
 
-    # top 3 CVEs by CVSS score — shown in the UI asset detail panel
     sorted_cves = sorted(cves, key=lambda x: float(x.get("cvss", 0)), reverse=True)
     top_cves    = [cv["cve_id"] for cv in sorted_cves[:3]]
 
@@ -192,7 +163,6 @@ def calculate_risk(asset: dict, cves: list) -> dict:
         },
         "top_cves": top_cves,
     }
-
 
 def simulate_fix(asset: dict, cves: list, fix: dict) -> dict:
     """

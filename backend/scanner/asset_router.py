@@ -10,6 +10,7 @@ FIXES applied:
 """
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional
@@ -28,38 +29,40 @@ def upsert_asset(asset_dict: dict, db: Session) -> AssetModel:
     """
     Insert a new asset or update an existing one by IP address.
     Prevents duplicate assets when the same network is scanned twice.
-
-    FIX: queries AssetModel.ip (not ip_address) to match AssetModel column.
-    FIX: reads asset_dict["ip"] consistently everywhere.
     """
     existing = db.query(AssetModel).filter(
-        AssetModel.ip == asset_dict["ip"]   # FIX: was ip_address
+        AssetModel.ip_address == asset_dict["ip_address"]
     ).first()
 
     if existing:
-        existing.hostname      = asset_dict["hostname"]
-        existing.os            = asset_dict["os"]
-        existing.open_ports    = asset_dict["open_ports"]
-        existing.software_list = asset_dict["software_list"]
-        existing.asset_type    = asset_dict["asset_type"]
-        existing.criticality   = asset_dict["criticality"]
-        existing.last_scanned  = datetime.now()
+        existing.hostname         = asset_dict.get("hostname")
+        existing.os               = asset_dict.get("os")
+        existing.open_ports       = asset_dict.get("open_ports")
+        existing.software_list    = asset_dict.get("software_list")
+        existing.criticality      = asset_dict.get("criticality")
+        existing.internet_exposed = asset_dict.get("internet_exposed", False)
         db.commit()
         db.refresh(existing)
         return existing
     else:
+        # Some Postgres configs disallow using the table's sequence directly.
+        # Generate an explicit ID so inserts do not require sequence permissions.
+        new_id = asset_dict.get("id")
+        if new_id is None:
+            max_id = db.query(func.max(AssetModel.id)).scalar() or 0
+            new_id = max_id + 1
+
         new_asset = AssetModel(
-            ip             = asset_dict["ip"],   # FIX: was ip_address = asset_dict["ip"]
-            hostname       = asset_dict["hostname"],
-            os             = asset_dict["os"],
-            open_ports     = asset_dict["open_ports"],
-            software_list  = asset_dict["software_list"],
-            asset_type     = asset_dict["asset_type"],
-            criticality    = asset_dict["criticality"],
-            last_scanned   = datetime.now(),
-            risk_score     = None,
-            severity_label = None,
-            last_scored    = None,
+            id               = new_id,
+            ip_address       = asset_dict["ip_address"],
+            hostname         = asset_dict.get("hostname"),
+            os               = asset_dict.get("os"),
+            open_ports       = asset_dict.get("open_ports"),
+            software_list    = asset_dict.get("software_list"),
+            criticality      = asset_dict.get("criticality"),
+            internet_exposed = asset_dict.get("internet_exposed", False),
+            risk_score       = None,
+            severity_label   = None,
         )
         db.add(new_asset)
         db.commit()
@@ -71,18 +74,18 @@ def upsert_asset(asset_dict: dict, db: Session) -> AssetModel:
 
 @router.get("/", response_model=list[AssetOut])
 def get_all_assets(
-    asset_type: Optional[str] = None,
+    internet_exposed: Optional[bool] = None,
     min_criticality: Optional[int] = None,
     db: Session = Depends(get_db)
 ):
     """
     Returns all discovered assets.
-    Optionally filter by asset_type or minimum criticality level.
+    Optionally filter by whether the asset is internet-exposed or minimum criticality.
     """
     query = db.query(AssetModel)
 
-    if asset_type:
-        query = query.filter(AssetModel.asset_type == asset_type)
+    if internet_exposed is not None:
+        query = query.filter(AssetModel.internet_exposed == internet_exposed)
 
     if min_criticality:
         query = query.filter(AssetModel.criticality >= min_criticality)
@@ -140,7 +143,7 @@ def trigger_scan(
             saved_asset = upsert_asset(asset_dict, db)
             saved.append(saved_asset)
         except Exception as e:
-            print(f"[asset_router] Failed to save asset {asset_dict.get('ip')}: {e}")
+            print(f"[asset_router] Failed to save asset {asset_dict.get('ip_address')}: {e}")
 
     duration = (datetime.now() - start_time).seconds
 
@@ -176,7 +179,7 @@ def load_demo_data(db: Session = Depends(get_db)):
             saved_asset = upsert_asset(asset_dict, db)
             saved.append(saved_asset)
         except Exception as e:
-            print(f"[asset_router] Failed to seed asset {asset_dict.get('ip')}: {e}")
+            print(f"[asset_router] Failed to seed asset {asset_dict.get('ip_address')}: {e}")
 
     return ScanResult(
         assets_found  = len(raw_assets),

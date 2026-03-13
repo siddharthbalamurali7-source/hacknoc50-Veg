@@ -1,5 +1,7 @@
 from dotenv import load_dotenv
+
 load_dotenv()
+
 
 from fastapi import FastAPI
 from scanner.asset_router import router as asset_router

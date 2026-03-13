@@ -7,7 +7,7 @@ that match exactly what the scorer and graph engine expect.
 import nmap
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 # ── Seed data path ─────────────────────────────────────────────────────────────
 SEED_FILE = Path(__file__).parent.parent / "data" / "seed_assets.json"
@@ -36,9 +36,8 @@ NMAP_TO_CPE_NAME = {
 
 # ── Asset type classifier ──────────────────────────────────────────────────────
 
-def classify_asset(open_ports: list) -> tuple:
-    """
-    Returns (asset_type: str, criticality: int) based on open ports.
+def classify_asset(open_ports: list) -> int:
+    """Return a criticality score based on open ports.
 
     Criticality scale (matches risk_engine.py CRITICALITY_WEIGHTS):
         1 = dev/test machine
@@ -50,18 +49,18 @@ def classify_asset(open_ports: list) -> tuple:
     port_set = set(int(p) for p in open_ports)
 
     if port_set & {5432, 3306, 1433, 27017, 6379}:
-        return "database", 5
+        return 5
 
     if port_set & {443}:
-        return "web_server", 3
+        return 3
 
     if port_set & {80, 8080, 8443}:
-        return "web_server", 2
+        return 2
 
     if port_set & {22}:
-        return "internal", 1
+        return 1
 
-    return "unknown", 1
+    return 1
 
 
 # ── Software list builder ──────────────────────────────────────────────────────
@@ -104,8 +103,7 @@ def parse_host(scanner: nmap.PortScanner, host: str) -> dict:
     Parses a single scanned host into an asset dict.
 
     FIXES applied:
-    - "ip" key (not "ip_address") to match AssetModel and upsert_asset()
-    - last_scanned is datetime object (not string) for patch_age_score()
+    - "ip_address" key (not "ip") to match AssetModel and upsert_asset()
     """
     host_data  = scanner[host]
     tcp_data   = host_data.get("tcp", {})
@@ -124,21 +122,24 @@ def parse_host(scanner: nmap.PortScanner, host: str) -> dict:
     os_matches = host_data.get("osmatch", [])
     os_name    = os_matches[0].get("name", "Unknown") if os_matches else "Unknown"
 
-    software_list           = build_software_list(tcp_data)
-    asset_type, criticality = classify_asset(open_ports)
+    software_list = build_software_list(tcp_data)
+    criticality  = classify_asset(open_ports)
+
+    # Any asset with common externally-exposed ports is considered internet-exposed.
+    internet_exposed = bool(set(open_ports) & {22, 80, 443, 3389, 21, 23, 25, 110, 143, 445})
 
     return {
-        "ip":             host,            # FIX: was "ip_address"
-        "hostname":       hostname,
-        "os":             os_name,
-        "open_ports":     open_ports,
-        "software_list":  software_list,
-        "asset_type":     asset_type,
-        "criticality":    criticality,
-        "last_scanned":   datetime.now(), # FIX: was datetime.now().isoformat()
-        "risk_score":     None,
-        "severity_label": None,
-        "last_scored":    None,
+        "ip_address":      host,
+        "hostname":        hostname,
+        "os":              os_name,
+        "open_ports":      open_ports,
+        "software_list":   software_list,
+        "criticality":     criticality,
+        "internet_exposed": internet_exposed,
+        "last_scanned":    datetime.now(timezone.utc),
+        "risk_score":      None,
+        "severity_label":  None,
+        "last_scored":     None,
     }
 
 

@@ -422,5 +422,20 @@
     "cves": [],
     "cached_at": "2026-03-13T13:39:10.322645",
     "cpe": "cpe:2.3:a:fakesoftware:fakesoftware:9.9.9:*:*:*:*:*:*:*"
+  },
+  "Apache:2.4.41": {
+    "cves": [],
+    "cached_at": "2026-03-13T18:00:15.271190",
+    "cpe": "cpe:2.3:a:apache:http_server:2.4.41:*:*:*:*:*:*:*"
+  },
+  "OpenSSL:1.1.1": {
+    "cves": [],
+    "cached_at": "2026-03-13T18:00:17.316223",
+    "cpe": "cpe:2.3:a:openssl:openssl:1.1.1:*:*:*:*:*:*:*"
+  },
+  "PostgreSQL:13.2": {
+    "cves": [],
+    "cached_at": "2026-03-13T18:00:20.796857",
+    "cpe": "cpe:2.3:a:postgresql:postgresql:13.2:*:*:*:*:*:*:*"
   }
 }

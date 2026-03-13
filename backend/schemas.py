@@ -18,17 +18,15 @@ class AssetOut(BaseModel):
     """An asset representation returned by the API."""
 
     id: int
-    ip: str
+    ip_address: str
     hostname: Optional[str] = None
     os: Optional[str] = None
-    asset_type: Optional[str] = None
+    internet_exposed: bool = False
     open_ports: List[int] = Field(default_factory=list)
     software_list: List[Software] = Field(default_factory=list)
     criticality: int
-    last_scanned: Optional[datetime] = None
     risk_score: Optional[float] = None
     severity_label: Optional[str] = None
-    last_scored: Optional[datetime] = None
 
     class Config:
         from_attributes = True

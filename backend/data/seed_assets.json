@@ -2,19 +2,45 @@
   {
     "id": 1,
     "name": "Web Server",
-    "ip": "192.168.1.10",
-    "risk_level": "low"
+    "ip_address": "192.168.1.10",
+    "hostname": "web01.example.com",
+    "os": "Linux",
+    "internet_exposed": true,
+    "open_ports": [80, 443],
+    "software_list": [
+      {"name": "Apache", "version": "2.4.41"},
+      {"name": "OpenSSL", "version": "1.1.1"}
+    ],
+    "criticality": 3,
+    "risk_score": null,
+    "severity_label": null
   },
   {
     "id": 2,
     "name": "Database Server",
-    "ip": "192.168.1.20",
-    "risk_level": "medium"
+    "ip_address": "192.168.1.20",
+    "hostname": "db01.example.com",
+    "os": "Linux",
+    "internet_exposed": false,
+    "open_ports": [5432],
+    "software_list": [
+      {"name": "PostgreSQL", "version": "13.2"}
+    ],
+    "criticality": 5,
+    "risk_score": null,
+    "severity_label": null
   },
   {
     "id": 3,
     "name": "External Firewall",
-    "ip": "203.0.113.5",
-    "risk_level": "high"
+    "ip_address": "203.0.113.5",
+    "hostname": "fw01.example.com",
+    "os": "Unknown",
+    "internet_exposed": true,
+    "open_ports": [22, 80],
+    "software_list": [],
+    "criticality": 4,
+    "risk_score": null,
+    "severity_label": null
   }
 ]
