@@ -2,6 +2,11 @@
 asset_router.py — Person A
 FastAPI router for asset discovery and management.
 Registers under /assets prefix in main.py.
+
+FIXES applied:
+- Removed circular import of score_one_asset from scorer.scorer_router
+- Removed score_one_asset() calls from trigger_scan() and load_demo_data()
+- Fixed ip_address -> ip key in upsert_asset()
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -12,7 +17,6 @@ from typing import Optional
 from database import get_db
 from models import AssetModel
 from schemas import AssetOut, AssetScanRequest, ScanResult
-from scorer.scorer_router import score_one_asset
 from scanner.nmap_scanner import scan_network, load_seed_assets
 
 router = APIRouter()
@@ -25,15 +29,14 @@ def upsert_asset(asset_dict: dict, db: Session) -> AssetModel:
     Insert a new asset or update an existing one by IP address.
     Prevents duplicate assets when the same network is scanned twice.
 
-    Returns the saved AssetModel instance.
+    FIX: queries AssetModel.ip (not ip_address) to match AssetModel column.
+    FIX: reads asset_dict["ip"] consistently everywhere.
     """
     existing = db.query(AssetModel).filter(
-        AssetModel.ip_address == asset_dict["ip_address"]
+        AssetModel.ip == asset_dict["ip"]   # FIX: was ip_address
     ).first()
 
     if existing:
-        # update all fields except id, risk_score, severity_label, last_scored
-        # those are owned by the scorer — don't overwrite them
         existing.hostname      = asset_dict["hostname"]
         existing.os            = asset_dict["os"]
         existing.open_ports    = asset_dict["open_ports"]
@@ -46,18 +49,17 @@ def upsert_asset(asset_dict: dict, db: Session) -> AssetModel:
         return existing
     else:
         new_asset = AssetModel(
-            ip_address            = asset_dict["ip"],
-            hostname      = asset_dict["hostname"],
-            os            = asset_dict["os"],
-            open_ports    = asset_dict["open_ports"],
-            software_list = asset_dict["software_list"],
-            asset_type    = asset_dict["asset_type"],
-            criticality   = asset_dict["criticality"],
-            last_scanned  = datetime.now(),
-            # scorer fields — start as None, scorer fills these in
-            risk_score    = None,
-            severity_label= None,
-            last_scored   = None,
+            ip             = asset_dict["ip"],   # FIX: was ip_address = asset_dict["ip"]
+            hostname       = asset_dict["hostname"],
+            os             = asset_dict["os"],
+            open_ports     = asset_dict["open_ports"],
+            software_list  = asset_dict["software_list"],
+            asset_type     = asset_dict["asset_type"],
+            criticality    = asset_dict["criticality"],
+            last_scanned   = datetime.now(),
+            risk_score     = None,
+            severity_label = None,
+            last_scored    = None,
         )
         db.add(new_asset)
         db.commit()
@@ -76,11 +78,6 @@ def get_all_assets(
     """
     Returns all discovered assets.
     Optionally filter by asset_type or minimum criticality level.
-
-    Used by:
-    - Frontend asset list panel
-    - Graph builder to construct the attack path graph
-    - Scorer to know which assets to score
     """
     query = db.query(AssetModel)
 
@@ -98,7 +95,6 @@ def get_all_assets(
 def get_asset(asset_id: int, db: Session = Depends(get_db)):
     """
     Returns a single asset by ID.
-    Used by the asset detail panel and scorer for per-asset operations.
     """
     asset = db.query(AssetModel).filter(AssetModel.id == asset_id).first()
     if not asset:
@@ -112,18 +108,11 @@ def trigger_scan(
     db: Session = Depends(get_db)
 ):
     """
-    Triggers a live Nmap scan on the given IP range.
-    Saves all discovered assets to the database.
+    Triggers a live Nmap scan on the given IP range and saves results to DB.
 
-    After saving, triggers scorer recalculation automatically
-    so scores are always fresh after a scan.
-
-    Body:
-        ip_range  (str)  — CIDR range e.g. "192.168.1.0/24"
-        ports     (str)  — port range e.g. "1-1024" (optional)
-        use_seed  (bool) — use seed data instead of live scan (for demo)
+    FIX: removed score_one_asset() call — scoring is triggered separately
+    via POST /scores/recalculate to avoid circular imports.
     """
-    # use seed data for demo if requested or if no real network available
     if request.use_seed:
         print("[asset_router] Using seed data for demo")
         raw_assets = load_seed_assets()
@@ -153,14 +142,6 @@ def trigger_scan(
         except Exception as e:
             print(f"[asset_router] Failed to save asset {asset_dict.get('ip')}: {e}")
 
-    # Automatically recalculate risk scores for new/updated assets.
-    # This ensures the scorer folder has up-to-date scores after each scan.
-    for asset in saved:
-        try:
-            score_one_asset(asset, db)
-        except Exception as e:
-            print(f"[asset_router] Failed to score asset {asset.id}: {e}")
-
     duration = (datetime.now() - start_time).seconds
 
     return ScanResult(
@@ -169,7 +150,7 @@ def trigger_scan(
         ip_range      = request.ip_range,
         scan_duration = duration,
         timestamp     = datetime.now(),
-        message       = f"Scan complete — {len(saved)} assets saved"
+        message       = f"Scan complete — {len(saved)} assets saved. Call POST /scores/recalculate to score them."
     )
 
 
@@ -177,10 +158,9 @@ def trigger_scan(
 def load_demo_data(db: Session = Depends(get_db)):
     """
     Loads seed assets from data/seed_assets.json into the database.
-    Use this endpoint to populate the DB instantly for a demo
-    without running a real Nmap scan.
+    Use this for demo setup without running a real Nmap scan.
 
-    Called during hackathon presentation setup.
+    FIX: removed score_one_asset() call — call POST /scores/recalculate after seeding.
     """
     raw_assets = load_seed_assets()
 
@@ -198,28 +178,20 @@ def load_demo_data(db: Session = Depends(get_db)):
         except Exception as e:
             print(f"[asset_router] Failed to seed asset {asset_dict.get('ip')}: {e}")
 
-    # Score the seeded assets so the scorer UI has values immediately.
-    for asset in saved:
-        try:
-            score_one_asset(asset, db)
-        except Exception as e:
-            print(f"[asset_router] Failed to score seeded asset {asset.id}: {e}")
-
     return ScanResult(
         assets_found  = len(raw_assets),
         assets_saved  = len(saved),
         ip_range      = "seed data",
         scan_duration = 0,
         timestamp     = datetime.now(),
-        message       = f"Seeded {len(saved)} demo assets successfully"
+        message       = f"Seeded {len(saved)} demo assets. Call POST /scores/recalculate to score them."
     )
 
 
 @router.delete("/{asset_id}")
 def delete_asset(asset_id: int, db: Session = Depends(get_db)):
     """
-    Deletes an asset and all its associated scores.
-    Useful for cleaning up the demo environment between runs.
+    Deletes an asset by ID.
     """
     asset = db.query(AssetModel).filter(AssetModel.id == asset_id).first()
     if not asset:
@@ -233,8 +205,7 @@ def delete_asset(asset_id: int, db: Session = Depends(get_db)):
 @router.delete("/")
 def clear_all_assets(db: Session = Depends(get_db)):
     """
-    Wipes all assets from the database.
-    Use before loading fresh seed data for a clean demo.
+    Wipes all assets. Use before reseeding for a clean demo.
     """
     count = db.query(AssetModel).delete()
     db.commit()
