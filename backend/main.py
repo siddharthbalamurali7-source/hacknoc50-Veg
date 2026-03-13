@@ -1,13 +1,11 @@
 from dotenv import load_dotenv
-
 load_dotenv()
 
-
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from scanner.asset_router import router as asset_router
 from scorer.scorer_router import router as scorer_router
 from analyzer.analyzer_router import router as analyzer_router
-from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="CyberSentry")
 
