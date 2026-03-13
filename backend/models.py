@@ -54,15 +54,3 @@ class RiskScoreModel(Base):
     top_cves = Column(JSON, nullable=True)
 
     calculated_at = Column(DateTime, nullable=False)
-
-
-class CVE(Base):
-    """Represents a CVE entry."""
-
-    __tablename__ = "cves"
-
-
-class Misconfig(Base):
-    """Represents a configuration issue found on an asset."""
-
-    __tablename__ = "misconfigs"
