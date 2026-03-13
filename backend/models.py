@@ -7,7 +7,7 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 
-class Asset(Base):
+class AssetModel(Base):
     """Represents a network asset."""
 
     __tablename__ = "assets"
