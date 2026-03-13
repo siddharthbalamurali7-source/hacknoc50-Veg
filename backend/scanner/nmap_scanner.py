@@ -147,7 +147,7 @@ def parse_host(scanner: nmap.PortScanner, host: str) -> dict:
     asset_type, criticality = classify_asset(open_ports)
 
     return {
-        "ip":            host,
+        "ip_address":    host,
         "hostname":      hostname,
         "os":            os_name,
         "open_ports":    open_ports,
