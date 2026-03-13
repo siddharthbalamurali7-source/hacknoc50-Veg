@@ -56,3 +56,22 @@ class RiskScoreModel(Base):
     top_cves = Column(JSON, nullable=True)
 
     calculated_at = Column(TIMESTAMP(timezone=True), nullable=True)
+
+
+class RelationshipModel(Base):
+    """Represents a trust or network relationship between two assets."""
+
+    __tablename__ = "relationships"
+
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    source_asset_id = Column(Integer, ForeignKey("assets.id"), nullable=False)
+    target_asset_id = Column(Integer, ForeignKey("assets.id"), nullable=False)
+    
+    # e.g., "ssh_trust", "network_reachable", "shared_credentials", "lateral_movement_possible"
+    type = Column(String, nullable=False)
+    
+    # can store additional metadata about the connection
+    metadata_json = Column(JSON, nullable=True)
+    
+    # probability of successful traversal (0.0 to 1.0)
+    traversal_probability = Column(Float, default=0.5)
