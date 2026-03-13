@@ -159,7 +159,7 @@ def scan_network(ip_range: str, ports: str = "1-1024") -> list:
         scanner.scan(
             hosts     = ip_range,
             ports     = ports,
-            arguments = "-sV -O --open --host-timeout 30s"
+            arguments = "-sV --open --host-timeout 30s"
         )
     except nmap.PortScannerError as e:
         print(f"[nmap_scanner] Nmap error: {e}")
