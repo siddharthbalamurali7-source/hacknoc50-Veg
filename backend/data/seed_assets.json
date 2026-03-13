@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "name": "Web Server",
+    "ip": "192.168.1.10",
+    "risk_level": "low"
+  },
+  {
+    "id": 2,
+    "name": "Database Server",
+    "ip": "192.168.1.20",
+    "risk_level": "medium"
+  },
+  {
+    "id": 3,
+    "name": "External Firewall",
+    "ip": "203.0.113.5",
+    "risk_level": "high"
+  }
+]
