@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class Software(BaseModel):
@@ -27,6 +27,11 @@ class AssetOut(BaseModel):
     criticality: int
     risk_score: Optional[float] = None
     severity_label: Optional[str] = None
+
+    @field_validator('open_ports', 'software_list', mode='before')
+    @classmethod
+    def null_to_empty_list(cls, v):
+        return v if v is not None else []
 
     class Config:
         from_attributes = True

@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from ..database import SessionLocal
-from ..schemas import RelationshipOut, RelationshipCreate, AttackPath
-from ..models import RelationshipModel, AssetModel
+from database import SessionLocal
+from schemas import RelationshipOut, RelationshipCreate, AttackPath
+from models import RelationshipModel, AssetModel
 from .graph_engine import GraphEngine
 
 router = APIRouter(prefix="/analyzer", tags=["analyzer"])
