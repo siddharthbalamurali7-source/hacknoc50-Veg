@@ -28,7 +28,7 @@ def upsert_asset(asset_dict: dict, db: Session) -> AssetModel:
     Returns the saved AssetModel instance.
     """
     existing = db.query(AssetModel).filter(
-        AssetModel.ip == asset_dict["ip"]
+        AssetModel.ip_address == asset_dict["ip_address"]
     ).first()
 
     if existing:
@@ -46,7 +46,7 @@ def upsert_asset(asset_dict: dict, db: Session) -> AssetModel:
         return existing
     else:
         new_asset = AssetModel(
-            ip            = asset_dict["ip"],
+            ip_address            = asset_dict["ip"],
             hostname      = asset_dict["hostname"],
             os            = asset_dict["os"],
             open_ports    = asset_dict["open_ports"],
