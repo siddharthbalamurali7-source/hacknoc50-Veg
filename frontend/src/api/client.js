@@ -1,7 +1,8 @@
 import { mockData } from "../mock/mockData"
 
 const USE_MOCK = false
-const BASE_URL = "http://localhost:8000"
+// Connect to backend - use VM IP for remote, localhost for local dev
+const BASE_URL = import.meta.env.VITE_API_URL || "http://172.31.22.167:8000"
 
 // ─── ASSETS ──────────────────────────────────────────────────────────────────
 
