@@ -1,7 +1,7 @@
 {
   "Apache:2.4.49": {
     "cves": [],
-    "cached_at": "2026-03-13T20:09:45.201749",
+    "cached_at": "2026-03-13T20:25:17.219356",
     "cpe": "cpe:2.3:a:apache:http_server:2.4.49:*:*:*:*:*:*:*"
   },
   "FakeSoftware:9.9.9": {

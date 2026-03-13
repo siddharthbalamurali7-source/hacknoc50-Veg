@@ -88,3 +88,42 @@ class FixSimulationResult(BaseModel):
     delta: float
     old_severity: str
     new_severity: str
+
+
+class RelationshipBase(BaseModel):
+    source_asset_id: int
+    target_asset_id: int
+    type: str
+    metadata_json: Optional[dict] = None
+    traversal_probability: float = 0.5
+
+
+class RelationshipCreate(RelationshipBase):
+    pass
+
+
+class RelationshipOut(RelationshipBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class AttackPathNode(BaseModel):
+    id: int
+    hostname: str
+    risk_score: float
+    severity: str
+
+
+class AttackPathEdge(BaseModel):
+    source: int
+    target: int
+    type: str
+    weight: float
+
+
+class AttackPath(BaseModel):
+    nodes: List[AttackPathNode]
+    edges: List[AttackPathEdge]
+    total_probability: float
