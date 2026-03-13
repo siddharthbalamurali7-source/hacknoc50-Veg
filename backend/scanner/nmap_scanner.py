@@ -4,10 +4,13 @@ Runs Nmap on a target IP range and parses results into asset dicts
 that match exactly what the scorer and graph engine expect.
 """
 
+import os
 import nmap
 import json
 from pathlib import Path
 from datetime import datetime, timezone
+
+NMAP_PATH = os.getenv("NMAP_PATH", "nmap")
 
 # ── Seed data path ─────────────────────────────────────────────────────────────
 SEED_FILE = Path(__file__).parent.parent / "data" / "seed_assets.json"
@@ -149,7 +152,7 @@ def scan_network(ip_range: str, ports: str = "1-1024") -> list:
     """
     Runs Nmap on the given IP range and returns a list of asset dicts.
     """
-    scanner = nmap.PortScanner()
+    scanner = nmap.PortScanner(nmap_search_path=(NMAP_PATH,))
     print(f"[nmap_scanner] Scanning {ip_range} ports {ports}...")
 
     try:

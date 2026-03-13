@@ -14,9 +14,10 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional
+import socket
 
 from database import get_db
-from models import AssetModel
+from models import AssetModel, RelationshipModel
 from schemas import AssetOut, AssetScanRequest, ScanResult
 from scanner.nmap_scanner import scan_network, load_seed_assets
 
@@ -213,3 +214,81 @@ def clear_all_assets(db: Session = Depends(get_db)):
     count = db.query(AssetModel).delete()
     db.commit()
     return {"message": f"Deleted {count} assets"}
+
+@router.post("/scan-self", response_model=ScanResult)
+def scan_self(db: Session = Depends(get_db)):
+    """
+    Scans the VM itself, seeds 2 fake entry-point assets,
+    creates relationships, and prepares the full attack graph.
+    Call POST /scores/recalculate after this.
+    """
+    # Step 1 — detect own IP and scan
+    own_ip = socket.gethostbyname(socket.gethostname())
+    print(f"[asset_router] Scanning self at {own_ip}")
+
+    raw_assets = scan_network(ip_range=own_ip, ports="1-1024")
+
+    if not raw_assets:
+        return ScanResult(
+            assets_found=0,
+            assets_saved=0,
+            ip_range=own_ip,
+            scan_duration=0,
+            timestamp=datetime.now(),
+            message="No assets found on self-scan — check Nmap is installed"
+        )
+
+    # Step 2 — save the VM asset
+    start_time = datetime.now()
+    vm_asset = upsert_asset(raw_assets[0], db)
+    print(f"[asset_router] VM asset saved — id={vm_asset.id}, ip={vm_asset.ip_address}")
+
+    # Step 3 — create 2 fake entry-point assets to build attack graph
+    entry1 = upsert_asset({
+        "ip_address":     "10.0.0.1",
+        "hostname":       "corp-gateway",
+        "os":             "Linux",
+        "open_ports":     [80, 443],
+        "software_list":  [{"name": "nginx", "version": "1.18.0"}],
+        "criticality":    2,
+        "internet_exposed": True,
+    }, db)
+
+    entry2 = upsert_asset({
+        "ip_address":     "10.0.0.2",
+        "hostname":       "internal-proxy",
+        "os":             "Linux",
+        "open_ports":     [22, 8080],
+        "software_list":  [{"name": "OpenSSH", "version": "7.4"}],
+        "criticality":    3,
+        "internet_exposed": False,
+    }, db)
+
+    # Step 4 — create relationships pointing toward the VM
+    def add_relationship(src_id, tgt_id, rel_type, prob):
+        existing = db.query(RelationshipModel).filter(
+            RelationshipModel.source_asset_id == src_id,
+            RelationshipModel.target_asset_id == tgt_id
+        ).first()
+        if not existing:
+            db.add(RelationshipModel(
+                source_asset_id=src_id,
+                target_asset_id=tgt_id,
+                type=rel_type,
+                traversal_probability=prob
+            ))
+            db.commit()
+
+    add_relationship(entry1.id, entry2.id, "network_reachable", 0.8)
+    add_relationship(entry2.id, vm_asset.id, "ssh_pivot", 0.6)
+
+    duration = (datetime.now() - start_time).seconds
+
+    return ScanResult(
+        assets_found=len(raw_assets),
+        assets_saved=3,
+        ip_range=own_ip,
+        scan_duration=duration,
+        timestamp=datetime.now(),
+        message=f"VM scanned at {own_ip}. Attack graph ready. Call POST /scores/recalculate to score."
+    )

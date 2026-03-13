@@ -226,7 +226,7 @@ def recalculate_all(db: Session = Depends(get_db)):
     for asset in assets:
         old_score = asset.risk_score or 0.0
         try:
-            result = score_one_asset(asset, db, skip_cve_search=True)
+            result = score_one_asset(asset, db, skip_cve_search=False)
             results.append({
                 "asset_id":    asset.id,
                 "hostname":    asset.hostname,
